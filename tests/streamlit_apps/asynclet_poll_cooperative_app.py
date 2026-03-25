@@ -10,7 +10,7 @@ import time
 
 import streamlit as st
 
-import asynclit as asynclet
+import asynclit
 
 
 def work() -> int:
@@ -18,9 +18,9 @@ def work() -> int:
     return 42
 
 
-tasks = asynclet.session_tasks(st.session_state, key="coop")
+tasks = asynclit.session_tasks(st.session_state, key="coop")
 if "t" not in tasks:
-    tasks["t"] = asynclet.run(work)
+    tasks["t"] = asynclit.run(work)
 
 task = tasks["t"]
 if not task.done:

@@ -9,7 +9,7 @@
 ## 0.2.0
 
 - Add `RetryPolicy` for exception-based retries with backoff.
-- Add APScheduler-backed scheduling helpers (`schedule_interval`, `schedule_cron`) behind `asynclet[scheduler]`.
+- Add APScheduler-backed scheduling helpers (`schedule_interval`, `schedule_cron`) behind `asynclit[scheduler]`.
 - Improve docs (guides + ReadTheDocs/Sphinx setup) and expand test coverage.
 
 ## 0.1.0

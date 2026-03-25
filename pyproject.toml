@@ -46,10 +46,10 @@ dev = [
 Homepage = "https://github.com/eddiethedean/asynclit"
 
 [tool.hatch.build.targets.wheel]
-packages = ["asynclit", "asynclet"]
+packages = ["asynclit"]
 
 [tool.hatch.build.targets.sdist]
-include = ["asynclit", "asynclet"]
+include = ["asynclit"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

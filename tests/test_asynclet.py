@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 
-import asynclit as asynclet
+import asynclit
 
 from .helpers import wait_done, wait_done_async
 
@@ -18,9 +18,9 @@ def test_run_sync_function():
     def add(a: int, b: int) -> int:
         return a + b
 
-    task = asynclet.run(add, 2, 3)
+    task = asynclit.run(add, 2, 3)
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.DONE
+    assert task.status == asynclit.TaskStatus.DONE
     assert task.error is None
     assert task.result == 5
 
@@ -31,7 +31,7 @@ async def test_run_async_coroutine():
         await asyncio.sleep(0.01)
         return x * 2
 
-    task = asynclet.run(double, 21)
+    task = asynclit.run(double, 21)
     await wait_done_async(task)
     assert task.result == 42
 
@@ -43,7 +43,7 @@ async def test_progress_queue_first_param():
             await progress_queue.async_q.put(i)
         return n
 
-    task = asynclet.run(emit, 4)
+    task = asynclit.run(emit, 4)
     seen: list[int] = []
     await wait_done_async(task)
     seen.extend(task.progress)
@@ -57,7 +57,7 @@ async def test_progress_queue_keyword_injected_second_param():
         await progress_queue.async_q.put("tick")
         return n
 
-    task = asynclet.run(keyed, 9)
+    task = asynclit.run(keyed, 9)
     await wait_done_async(task)
     assert task.progress == ["tick"]
     assert task.result == 9
@@ -70,7 +70,7 @@ async def test_progress_tail_readable_after_done_without_mid_poll():
             await queue.async_q.put(i)
         return n
 
-    task = asynclet.run(burst, 3)
+    task = asynclit.run(burst, 3)
     await wait_done_async(task)
     assert task.progress == [0, 1, 2]
     assert task.progress == []
@@ -112,7 +112,7 @@ async def test_progress_tail_drain_tolerates_shutdown_exception(
     async def uses_progress(queue) -> int:
         return 1
 
-    task = asynclet.run(uses_progress)
+    task = asynclit.run(uses_progress)
     await wait_done_async(task)
     assert task.result == 1
 
@@ -122,7 +122,7 @@ def test_result_raises_runtime_error_when_not_complete():
         time.sleep(0.3)
         return 1
 
-    task = asynclet.run(slow)
+    task = asynclit.run(slow)
     assert not task.done
     with pytest.raises(RuntimeError, match="not complete"):
         _ = task.result
@@ -133,9 +133,9 @@ def test_async_error_surfaces():
         await asyncio.sleep(0.01)
         raise RuntimeError("async boom")
 
-    task = asynclet.run(bad)
+    task = asynclit.run(bad)
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.status == asynclit.TaskStatus.ERROR
     assert task.error is not None
     assert str(task.error) == "async boom"
     with pytest.raises(RuntimeError, match="async boom"):
@@ -146,9 +146,9 @@ def test_error_surfaces_on_sync_task():
     def boom() -> None:
         raise ValueError("nope")
 
-    task = asynclet.run(boom)
+    task = asynclit.run(boom)
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.status == asynclit.TaskStatus.ERROR
     with pytest.raises(ValueError, match="nope"):
         _ = task.result
 
@@ -157,11 +157,11 @@ def test_cancel_idempotent_when_error():
     def boom() -> None:
         raise RuntimeError("bad")
 
-    task = asynclet.run(boom)
+    task = asynclit.run(boom)
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.status == asynclit.TaskStatus.ERROR
     assert task.cancel() is False
-    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.status == asynclit.TaskStatus.ERROR
     assert task.error is not None
     with pytest.raises(RuntimeError, match="bad"):
         _ = task.result
@@ -172,11 +172,11 @@ def test_cancel_running_task():
         await asyncio.sleep(60)
         return "done"
 
-    task = asynclet.run(slow)
+    task = asynclit.run(slow)
     time.sleep(0.05)
     assert task.cancel() is True
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.CANCELLED
+    assert task.status == asynclit.TaskStatus.CANCELLED
 
 
 def test_cancel_pending_before_worker_binds_eventually_cancelled():
@@ -185,10 +185,10 @@ def test_cancel_pending_before_worker_binds_eventually_cancelled():
 
     seen_cancelled = 0
     for _ in range(30):
-        task = asynclet.run(never_scheduled_long)
+        task = asynclit.run(never_scheduled_long)
         if task.cancel():
             wait_done(task, timeout=5.0)
-            if task.status == asynclet.TaskStatus.CANCELLED:
+            if task.status == asynclit.TaskStatus.CANCELLED:
                 seen_cancelled += 1
                 with pytest.raises(concurrent.futures.CancelledError):
                     _ = task.result
@@ -199,10 +199,10 @@ def test_cancel_idempotent_when_done():
     def ok() -> int:
         return 42
 
-    task = asynclet.run(ok)
+    task = asynclit.run(ok)
     wait_done(task)
     assert task.cancel() is False
-    assert task.status == asynclet.TaskStatus.DONE
+    assert task.status == asynclit.TaskStatus.DONE
     assert task.result == 42
 
 
@@ -210,33 +210,33 @@ def test_cancel_idempotent_when_already_cancelled():
     async def slow() -> None:
         await asyncio.sleep(30)
 
-    task = asynclet.run(slow)
+    task = asynclit.run(slow)
     time.sleep(0.05)
     assert task.cancel() is True
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.CANCELLED
+    assert task.status == asynclit.TaskStatus.CANCELLED
     assert task.cancel() is False
 
 
 def test_custom_task_manager_isolated_from_default():
-    m = asynclet.TaskManager()
+    m = asynclit.TaskManager()
 
     def ident(x: int) -> int:
         return x
 
-    task = asynclet.run(ident, 7, manager=m)
+    task = asynclit.run(ident, 7, manager=m)
     wait_done(task)
     assert m.get(task.id) is not None
-    assert asynclet.get_default_manager().get(task.id) is None
+    assert asynclit.get_default_manager().get(task.id) is None
 
 
 def test_manager_get_missing_returns_none():
-    m = asynclet.TaskManager()
+    m = asynclit.TaskManager()
     assert m.get(str(uuid.uuid4())) is None
 
 
 def test_manager_register_global_alias():
-    m = asynclet.TaskManager()
+    m = asynclit.TaskManager()
 
     def f() -> str:
         return "ok"
@@ -250,7 +250,7 @@ def test_manager_register_global_alias():
 
 
 def test_manager_cleanup_removes_oldest_completed():
-    m = asynclet.TaskManager(max_completed=2)
+    m = asynclit.TaskManager(max_completed=2)
 
     def ident(x: int) -> int:
         return x
@@ -270,8 +270,8 @@ def test_manager_cleanup_removes_oldest_completed():
 
 def test_session_tasks_creates_stable_bucket():
     state: dict = {}
-    a = asynclet.session_tasks(state, key="bucket")
-    b = asynclet.session_tasks(state, key="bucket")
+    a = asynclit.session_tasks(state, key="bucket")
+    b = asynclit.session_tasks(state, key="bucket")
     assert a is b
     assert "bucket" in state
 
@@ -280,7 +280,7 @@ def test_task_id_is_uuid_v4():
     def noop() -> None:
         return None
 
-    task = asynclet.run(noop)
+    task = asynclit.run(noop)
     wait_done(task)
     assert re.fullmatch(
         r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
@@ -293,7 +293,7 @@ def test_concurrent_tasks_all_succeed():
         time.sleep(0.02)
         return i * 3
 
-    tasks = [asynclet.run(work, i) for i in range(6)]
+    tasks = [asynclit.run(work, i) for i in range(6)]
     for t in tasks:
         wait_done(t)
     assert [t.result for t in tasks] == [i * 3 for i in range(6)]
@@ -305,13 +305,13 @@ def test_concurrent_tasks_finish_out_of_order():
         time.sleep(0.02 * (6 - i))
         return i
 
-    tasks = [asynclet.run(work, i) for i in range(6)]
+    tasks = [asynclit.run(work, i) for i in range(6)]
     time.sleep(0.05)
     assert any(t.done for t in tasks)
     assert any(not t.done for t in tasks)
     for t in tasks:
         wait_done(t)
-        assert t.status == asynclet.TaskStatus.DONE
+        assert t.status == asynclit.TaskStatus.DONE
     assert sorted([t.result for t in tasks]) == list(range(6))
 
 
@@ -321,7 +321,7 @@ def test_sync_function_runs_off_worker_thread():
     def whoami() -> threading.Thread:
         return threading.current_thread()
 
-    task = asynclet.run(whoami)
+    task = asynclit.run(whoami)
     wait_done(task)
     assert task.result is not main
 
@@ -334,7 +334,7 @@ async def test_async_coroutine_runs_on_worker_loop():
         loop_ids["id"] = id(asyncio.get_running_loop())
         return 1
 
-    task = asynclet.run(capture)
+    task = asynclit.run(capture)
     await wait_done_async(task)
     worker_loop_id = loop_ids["id"]
 
@@ -351,7 +351,7 @@ def test_run_passes_kwargs_to_callable():
     def greet(*, name: str, punct: str = "!") -> str:
         return f"hi {name}{punct}"
 
-    task = asynclet.run(greet, name="ada", punct="?")
+    task = asynclit.run(greet, name="ada", punct="?")
     wait_done(task)
     assert task.result == "hi ada?"
 
@@ -362,7 +362,7 @@ async def test_async_without_progress_queue():
         await asyncio.sleep(0.01)
         return a + b
 
-    task = asynclet.run(add, 40, 2)
+    task = asynclit.run(add, 40, 2)
     await wait_done_async(task)
     assert task.progress == []
     assert task.result == 42
@@ -376,7 +376,7 @@ async def test_progress_mid_run_drains_without_duplication():
             await asyncio.sleep(0.02)
         return 3
 
-    task = asynclet.run(emit)
+    task = asynclit.run(emit)
     collected: list[int] = []
     while not task.done:
         collected.extend(task.progress)
@@ -388,7 +388,7 @@ async def test_progress_mid_run_drains_without_duplication():
 
 
 def test_retry_policy_delay_computation():
-    p = asynclet.RetryPolicy(
+    p = asynclit.RetryPolicy(
         max_attempts=3, base_delay=0.1, multiplier=2.0, max_delay=1.0, jitter=0.0
     )
     assert p.delay_for_attempt(0) == pytest.approx(0.1)
@@ -405,11 +405,11 @@ def test_retries_sync_function_eventually_succeeds():
             raise RuntimeError("nope")
         return 7
 
-    task = asynclet.run(
-        flaky, retry=asynclet.RetryPolicy(max_attempts=5, base_delay=0.0)
+    task = asynclit.run(
+        flaky, retry=asynclit.RetryPolicy(max_attempts=5, base_delay=0.0)
     )
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.DONE
+    assert task.status == asynclit.TaskStatus.DONE
     assert task.result == 7
     assert calls["n"] == 3
 
@@ -424,11 +424,11 @@ async def test_retries_async_function_eventually_succeeds():
             raise RuntimeError("nope")
         return 9
 
-    task = asynclet.run(
-        flaky, retry=asynclet.RetryPolicy(max_attempts=5, base_delay=0.0)
+    task = asynclit.run(
+        flaky, retry=asynclit.RetryPolicy(max_attempts=5, base_delay=0.0)
     )
     await wait_done_async(task)
-    assert task.status == asynclet.TaskStatus.DONE
+    assert task.status == asynclit.TaskStatus.DONE
     assert task.result == 9
     assert calls["n"] == 3
 
@@ -440,14 +440,14 @@ def test_retries_stop_after_max_attempts():
         calls["n"] += 1
         raise ValueError("bad")
 
-    task = asynclet.run(
+    task = asynclit.run(
         always,
-        retry=asynclet.RetryPolicy(
+        retry=asynclit.RetryPolicy(
             max_attempts=3, base_delay=0.0, retry_on=(ValueError,)
         ),
     )
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.status == asynclit.TaskStatus.ERROR
     assert calls["n"] == 3
     with pytest.raises(ValueError, match="bad"):
         _ = task.result
@@ -460,14 +460,14 @@ def test_retries_do_not_retry_on_unmatched_exception():
         calls["n"] += 1
         raise KeyError("k")
 
-    task = asynclet.run(
+    task = asynclit.run(
         always,
-        retry=asynclet.RetryPolicy(
+        retry=asynclit.RetryPolicy(
             max_attempts=5, base_delay=0.0, retry_on=(ValueError,)
         ),
     )
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.status == asynclit.TaskStatus.ERROR
     assert calls["n"] == 1
     with pytest.raises(KeyError):
         _ = task.result
@@ -480,15 +480,15 @@ def test_retry_policy_retry_if_predicate_blocks_retry():
         calls["n"] += 1
         raise RuntimeError("stop")
 
-    policy = asynclet.RetryPolicy(
+    policy = asynclit.RetryPolicy(
         max_attempts=5,
         base_delay=0.0,
         retry_on=(RuntimeError,),
         retry_if=lambda exc: "nope" in str(exc),
     )
-    task = asynclet.run(always, retry=policy)
+    task = asynclit.run(always, retry=policy)
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.status == asynclit.TaskStatus.ERROR
     assert calls["n"] == 1
 
 
@@ -499,16 +499,16 @@ def test_retry_policy_max_elapsed_stops_retrying():
         calls["n"] += 1
         raise RuntimeError("nope")
 
-    policy = asynclet.RetryPolicy(
+    policy = asynclit.RetryPolicy(
         max_attempts=10,
         base_delay=0.02,
         retry_on=(RuntimeError,),
         max_elapsed=0.05,
         jitter=0.0,
     )
-    task = asynclet.run(always, retry=policy)
+    task = asynclit.run(always, retry=policy)
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.status == asynclit.TaskStatus.ERROR
     # We don't assert exact attempts (timing), but it should stop before max_attempts.
     assert 1 <= calls["n"] < 10
 
@@ -520,14 +520,14 @@ def test_cancel_stops_retry_loop():
         calls["n"] += 1
         raise RuntimeError("nope")
 
-    policy = asynclet.RetryPolicy(
+    policy = asynclit.RetryPolicy(
         max_attempts=100, base_delay=0.01, retry_on=(RuntimeError,), jitter=0.0
     )
-    task = asynclet.run(always, retry=policy)
+    task = asynclit.run(always, retry=policy)
     time.sleep(0.05)
     assert task.cancel() is True
     wait_done(task)
-    assert task.status == asynclet.TaskStatus.CANCELLED
+    assert task.status == asynclit.TaskStatus.CANCELLED
     before = calls["n"]
     time.sleep(0.05)
     assert calls["n"] == before
@@ -542,13 +542,13 @@ def test_worker_loop_singleton():
 
 
 def test_manager_submit_matches_run_with_same_manager():
-    m = asynclet.TaskManager()
+    m = asynclit.TaskManager()
 
     def double(x: int) -> int:
         return x * 2
 
     t_submit = m.submit(double, 11)
-    t_run = asynclet.run(double, 11, manager=m)
+    t_run = asynclit.run(double, 11, manager=m)
     wait_done(t_submit)
     wait_done(t_run)
     assert t_submit.result == 22

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import streamlit as st
 
-import asynclit as asynclet
+import asynclit
 
 
-bucket = asynclet.session_tasks(st.session_state, key="bucket_test")
+bucket = asynclit.session_tasks(st.session_state, key="bucket_test")
 if "phase" not in bucket:
     bucket["phase"] = 1
     st.markdown("first")

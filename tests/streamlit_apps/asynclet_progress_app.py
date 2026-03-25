@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-import asynclit as asynclet
+import asynclit
 
 
 async def emit(queue, steps: int) -> int:
@@ -17,9 +17,9 @@ async def emit(queue, steps: int) -> int:
     return steps
 
 
-tasks = asynclet.session_tasks(st.session_state, key="asynclet_progress_demo")
+tasks = asynclit.session_tasks(st.session_state, key="asynclit_progress_demo")
 if "job" not in tasks:
-    tasks["job"] = asynclet.run(emit, 4)
+    tasks["job"] = asynclit.run(emit, 4)
 
 task = tasks["job"]
 for x in task.progress:

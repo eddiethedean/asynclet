@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-import asynclit as asynclet
+import asynclit
 
 
 @pytest.mark.asyncio
@@ -32,7 +32,7 @@ async def test_submit_coro_from_inside_worker_loop_returns_future():
         assert fut.done()
         return fut.result()
 
-    task = asynclet.run(inner)
+    task = asynclit.run(inner)
     # Wait from this test loop.
     deadline = asyncio.get_running_loop().time() + 5.0
     while not task.done and asyncio.get_running_loop().time() < deadline:

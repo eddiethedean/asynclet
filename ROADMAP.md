@@ -1,6 +1,6 @@
-# asynclet roadmap
+# asynclit roadmap
 
-This document tracks intended direction for **asynclet**. It is aspirational: priorities and versions can change. For behavior and API details, see [`docs/asynclet-spec.md`](docs/asynclet-spec.md).
+This document tracks intended direction for **asynclit**. It is aspirational: priorities and versions can change. For behavior and API details, see [`docs/asynclit-spec.md`](docs/asynclit-spec.md).
 
 ---
 
@@ -11,7 +11,7 @@ This document tracks intended direction for **asynclet**. It is aspirational: pr
 Already in scope for this line:
 
 - Dedicated **worker thread** with a single **asyncio** loop  
-- **`asynclet.run`** for **sync** (via asyncer `asyncify`) and **async** callables  
+- **`asynclit.run`** for **sync** (via asyncer `asyncify`) and **async** callables  
 - **`Task`**: `done`, `result`, `status`, `error`, `cancel`, `progress`  
 - **Janus**-based **progress** for async jobs (`queue` / `progress_queue`)  
 - **`TaskManager`**, default manager, **`cleanup`**, optional **`register_global`**  
@@ -29,7 +29,7 @@ Possible **patch** work (still 0.1.x):
   - Added a troubleshooting/FAQ for rerun timing gotchas (“why does it stay `wait`?”)
   - Expanded examples to show error handling (`task.status`, `task.error`) and user-land retry patterns
 - Typing and API polish without breaking changes
-  - Ensured `asynclet/scheduler.py` optional export is typed cleanly when APScheduler is missing
+- Ensured scheduler optional export is typed cleanly when APScheduler is missing
 - Test coverage for races and cancellation edge cases
   - Added coverage for pending-cancellation result behavior
   - Added concurrency coverage for out-of-order completion and registry consistency
@@ -44,9 +44,9 @@ Possible **patch** work (still 0.1.x):
 
 ### Completed (0.2)
 
-- **APScheduler**: first-class wrapper API (optional via `asynclet[scheduler]`)
+- **APScheduler**: first-class wrapper API (optional via `asynclit[scheduler]`)
   - `get_default_scheduler()`, `start_scheduler()`, `shutdown_scheduler()`
-  - `schedule_interval(...)` and `schedule_cron(...)` (jobs submit asynclet tasks; optional “latest task” alias)
+  - `schedule_interval(...)` and `schedule_cron(...)` (jobs submit asynclit tasks; optional “latest task” alias)
 - **Retries**: exception-based `RetryPolicy` with backoff (opt-in per `run` / `TaskManager.submit`)
 - **Cancellation**: clearer cooperative-cancel patterns documented (async vs sync caveats)
 

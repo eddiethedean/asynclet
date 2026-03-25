@@ -11,7 +11,7 @@ import time
 
 import streamlit as st
 
-import asynclit as asynclet
+import asynclit
 
 
 def heavy() -> int:
@@ -19,9 +19,9 @@ def heavy() -> int:
     return 138
 
 
-tasks = asynclet.session_tasks(st.session_state, key="asynclet_demo")
+tasks = asynclit.session_tasks(st.session_state, key="asynclit_demo")
 if "load" not in tasks:
-    tasks["load"] = asynclet.run(heavy)
+    tasks["load"] = asynclit.run(heavy)
 
 task = tasks["load"]
 if task.done:

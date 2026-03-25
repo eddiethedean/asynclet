@@ -193,6 +193,11 @@ class TaskManager:
                         tail.append(progress_q.sync_q.get_nowait())
                     except queue.Empty:
                         break
+                    except Exception as exc:
+                        # janus raises when the queue is closed and drained
+                        if exc.__class__.__name__ in ("ShutDown", "SyncQueueShutDown"):
+                            break
+                        raise
                 task._buffer_progress_tail(tail)
                 progress_q.close()
                 await progress_q.wait_closed()

@@ -95,3 +95,14 @@ def test_schedule_cron_runs_and_submits_task():
     assert scheduled.latest_task_key == "global:cron_latest"
 
     asynclet.shutdown_scheduler(wait=False)
+
+
+def test_start_scheduler_surfaces_start_errors():
+    class Bad:
+        running = False
+
+        def start(self) -> None:
+            raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="boom"):
+        asynclet.start_scheduler(Bad())

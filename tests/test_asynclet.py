@@ -76,6 +76,47 @@ async def test_progress_tail_readable_after_done_without_mid_poll():
     assert task.progress == []
 
 
+@pytest.mark.asyncio
+async def test_progress_tail_drain_tolerates_shutdown_exception(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Ensure the manager's final tail-drain doesn't fail if the sync queue proxy
+    # raises a shutdown exception (janus raises these when closed + drained).
+    import sys
+
+    class ShutDown(Exception):
+        pass
+
+    class FakeSyncQ:
+        def get_nowait(self):
+            raise ShutDown()
+
+    class FakeJanusQueue:
+        def __init__(self):
+            self.sync_q = FakeSyncQ()
+            self.async_q = object()
+
+        def close(self) -> None:
+            return None
+
+        async def wait_closed(self) -> None:
+            return None
+
+    class FakeJanus:
+        @staticmethod
+        def Queue():
+            return FakeJanusQueue()
+
+    monkeypatch.setitem(sys.modules, "janus", FakeJanus)
+
+    async def uses_progress(queue) -> int:
+        return 1
+
+    task = asynclet.run(uses_progress)
+    await wait_done_async(task)
+    assert task.result == 1
+
+
 def test_result_raises_runtime_error_when_not_complete():
     def slow() -> int:
         time.sleep(0.3)

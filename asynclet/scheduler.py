@@ -100,16 +100,21 @@ def start_scheduler(
     if not sch.running:
         loop = get_worker_loop()
         started = threading.Event()
+        err: list[BaseException] = []
 
         def _start() -> None:
             try:
                 sch.start()
+            except BaseException as exc:  # pragma: no cover - hard to hit without fakes
+                err.append(exc)
             finally:
                 started.set()
 
         loop.call_soon_threadsafe(_start)
         if not started.wait(timeout=5.0):
             raise RuntimeError("asynclet scheduler failed to start")
+        if err:
+            raise err[0]
     return sch
 
 
@@ -123,21 +128,29 @@ def shutdown_scheduler(
         scheduler: Scheduler instance to shutdown (defaults to the singleton if created).
         wait: Whether to wait for running jobs (passed to APScheduler).
     """
+    global _default_scheduler
     sch = scheduler or _default_scheduler
     if sch is None:
         return
     if sch.running:
         loop = get_worker_loop()
         done = threading.Event()
+        err: list[BaseException] = []
 
         def _shutdown() -> None:
             try:
                 sch.shutdown(wait=wait)
+            except BaseException as exc:  # pragma: no cover - hard to hit without fakes
+                err.append(exc)
             finally:
                 done.set()
 
         loop.call_soon_threadsafe(_shutdown)
         done.wait(timeout=5.0)
+        if err:
+            raise err[0]
+    if scheduler is None and sch is _default_scheduler:
+        _default_scheduler = None
 
 
 def schedule_interval(

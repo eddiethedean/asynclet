@@ -1,0 +1,167 @@
+from __future__ import annotations
+
+import asyncio
+import inspect
+import queue
+import threading
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+
+from asyncer import asyncify
+
+from asynclet.task import Task, TaskStatus, new_task_id
+from asynclet.worker import submit_coro
+
+T = TypeVar("T")
+
+_default_manager: Optional["TaskManager"] = None
+_default_manager_lock = threading.Lock()
+
+
+def _bind_progress_queue(
+    func: Callable[..., Any],
+    queue: Any,
+    args: Tuple[Any, ...],
+    kwargs: Dict[str, Any],
+) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
+    """Pass the Janus queue as the first positional arg if named ``queue`` / ``progress_queue``, else as a keyword."""
+    sig = inspect.signature(func)
+    params = list(sig.parameters.keys())
+    if not params:
+        return args, kwargs
+    first = params[0]
+    if first in ("progress_queue", "queue"):
+        kw = {k: v for k, v in kwargs.items() if k not in ("progress_queue", "queue")}
+        return (queue,) + args, kw
+    if "progress_queue" in sig.parameters:
+        return args, {**kwargs, "progress_queue": queue}
+    if "queue" in sig.parameters:
+        return args, {**kwargs, "queue": queue}
+    return args, kwargs
+
+
+def _wants_progress_queue(func: Callable[..., Any]) -> bool:
+    if not inspect.iscoroutinefunction(func):
+        return False
+    sig = inspect.signature(func)
+    return "progress_queue" in sig.parameters or "queue" in sig.parameters
+
+
+class TaskManager:
+    """Submits work to the asynclet worker, tracks tasks, and trims completed entries."""
+
+    def __init__(self, *, max_completed: int = 256) -> None:
+        self._tasks: Dict[str, Task[Any]] = {}
+        self._lock = threading.Lock()
+        self._max_completed = max_completed
+
+    def submit(self, func: Callable[..., T], /, *args: Any, **kwargs: Any) -> Task[T]:
+        task_id = new_task_id()
+        task: Task[T] = Task(task_id)
+        with self._lock:
+            self._tasks[task_id] = task
+        submit_coro(self._execute(task, func, args, kwargs))
+        self._cleanup_if_needed()
+        return task
+
+    def get(self, task_id: str) -> Optional[Task[Any]]:
+        with self._lock:
+            return self._tasks.get(task_id)
+
+    def cleanup(self) -> int:
+        """Remove oldest completed tasks if the registry exceeds ``max_completed``."""
+        removed = 0
+        with self._lock:
+            done_ids = [tid for tid, t in self._tasks.items() if t.done]
+            overflow = len(done_ids) - self._max_completed
+            if overflow <= 0:
+                return 0
+            for tid in done_ids[:overflow]:
+                self._tasks.pop(tid, None)
+                removed += 1
+        return removed
+
+    def _cleanup_if_needed(self) -> None:
+        with self._lock:
+            completed = sum(1 for t in self._tasks.values() if t.done)
+        if completed > self._max_completed:
+            self.cleanup()
+
+    async def _execute(
+        self,
+        task: Task[Any],
+        func: Callable[..., Any],
+        args: Tuple[Any, ...],
+        kwargs: Dict[str, Any],
+    ) -> None:
+        progress_q = None
+        try:
+            current = asyncio.current_task()
+            if current is None:
+                raise RuntimeError("asynclet: missing asyncio task")
+            loop = asyncio.get_running_loop()
+            task._bind_worker_task(current, loop)
+            if task.status == TaskStatus.CANCELLED:
+                raise asyncio.CancelledError
+
+            if inspect.iscoroutinefunction(func):
+                if _wants_progress_queue(func):
+                    import janus
+
+                    progress_q = janus.Queue()
+                    task._set_progress_queue(progress_q)
+                    args, kwargs = _bind_progress_queue(func, progress_q, args, kwargs)
+                result = await func(*args, **kwargs)
+            else:
+                runner = asyncify(func)
+                result = await runner(*args, **kwargs)
+
+            if task.status != TaskStatus.CANCELLED:
+                task._complete_ok(result)
+        except asyncio.CancelledError:
+            task._complete_cancelled()
+        except Exception as exc:
+            if task.status != TaskStatus.CANCELLED:
+                task._complete_error(exc)
+        finally:
+            if progress_q is not None:
+                tail: List[Any] = []
+                while True:
+                    try:
+                        tail.append(progress_q.sync_q.get_nowait())
+                    except queue.Empty:
+                        break
+                task._buffer_progress_tail(tail)
+                progress_q.close()
+                await progress_q.wait_closed()
+            task._clear_progress_queue_ref()
+
+    def register_global(self, task: Task[Any], name: str) -> None:
+        """Alias a task for shared lookup (e.g. ``get(f'global:{name}')``)."""
+        with self._lock:
+            self._tasks[f"global:{name}"] = task
+
+
+def get_default_manager() -> TaskManager:
+    global _default_manager
+    with _default_manager_lock:
+        if _default_manager is None:
+            _default_manager = TaskManager()
+        return _default_manager
+
+
+def run(
+    func: Callable[..., T],
+    /,
+    *args: Any,
+    manager: Optional[TaskManager] = None,
+    **kwargs: Any,
+) -> Task[T]:
+    """
+    Run ``func`` on the asynclet worker thread.
+
+    Async functions run on the worker event loop. Sync functions run via ``asyncer.asyncify``
+    (thread pool). If the coroutine declares a ``progress_queue`` or ``queue`` parameter, a
+    :class:`janus.Queue` is created and injected for streaming progress to the UI thread.
+    """
+    m = manager or get_default_manager()
+    return m.submit(func, *args, **kwargs)

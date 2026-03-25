@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling>=1.21.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "asynclet"
+version = "0.1.0"
+description = "Async task layer for Streamlit: background sync/async work, polling, progress, cancellation"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "asynclet contributors" }]
+keywords = ["streamlit", "async", "background", "tasks"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "asyncer>=0.0.2",
+  "janus>=1.0.0",
+]
+
+[project.optional-dependencies]
+streamlit = ["streamlit>=1.28.0"]
+scheduler = ["apscheduler>=3.10.0"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+
+[project.urls]
+Homepage = "https://github.com/asynclet/asynclet"
+
+[tool.hatch.build.targets.wheel]
+packages = ["asynclet"]
+
+[tool.hatch.build.targets.sdist]
+include = ["asynclet"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

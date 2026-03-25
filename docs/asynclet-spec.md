@@ -151,6 +151,14 @@ UI side: read **`task.progress`** on each rerun (or poll in a loop); values are 
 - **`session_tasks(session_state, key=...)`** returns a **dict** stored at **`session_state[key]`** for named tasks.  
 - **`TaskManager.register_global`** / **`get("global:{name}")`** support optional **shared aliases** inside a manager.  
 
+### 9.1 Rerun-driven UIs and polling
+
+In Streamlit-style rerun models, the script run that *submits* the task will usually finish before the background work completes. The intended usage is to:
+
+- Store the `Task` (for example in session state)
+- On subsequent reruns, check `task.done` / `task.status`
+- Read `task.result` only once it is complete
+
 ---
 
 ## 10. Error handling

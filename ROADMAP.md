@@ -21,8 +21,20 @@ Already in scope for this line:
 Possible **patch** work (still 0.1.x):
 
 - Docs and examples (Streamlit snippets, edge cases)  
+-   - Add a short “patterns” section: session-scoped tasks, named tasks, and cleanup guidance
+-   - Document progress queue injection rules (`queue`/`progress_queue`, positional vs keyword)
+-   - Document cancellation semantics (pending vs running) and what callers should expect
+-   - Add a small troubleshooting/FAQ (common “why does it stay `wait`?” rerun timing gotchas)
+-   - Expand examples to show error handling (`task.status`, `task.error`) and retries as user-land patterns
 - Typing and API polish without breaking changes  
+-   - Tighten generics on `Task[T]` and `TaskManager.submit/run` return types
+-   - Clarify and standardize public annotations (`Task.progress`, `Task.error`, `session_tasks` mapping types)
+-   - Ensure `asynclet/scheduler.py` optional export is typed cleanly when APScheduler is missing
 - Test coverage for races and cancellation edge cases  
+-   - Stress-test rapid submit/cancel before bind (“pending cancellation”) and ensure status settles correctly
+-   - Add concurrency tests for many tasks completing out of order (result correctness + registry consistency)
+-   - Add cancellation tests for: already-done, already-cancelled, and cancel-after-error idempotency
+-   - Add progress tests for mid-run polling (drain behavior) vs tail buffering after completion
 
 ---
 

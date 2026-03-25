@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import re
 import threading
 import time
@@ -111,6 +112,20 @@ def test_error_surfaces_on_sync_task():
         _ = task.result
 
 
+def test_cancel_idempotent_when_error():
+    def boom() -> None:
+        raise RuntimeError("bad")
+
+    task = asynclet.run(boom)
+    wait_done(task)
+    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.cancel() is False
+    assert task.status == asynclet.TaskStatus.ERROR
+    assert task.error is not None
+    with pytest.raises(RuntimeError, match="bad"):
+        _ = task.result
+
+
 def test_cancel_running_task():
     async def slow() -> str:
         await asyncio.sleep(60)
@@ -134,6 +149,8 @@ def test_cancel_pending_before_worker_binds_eventually_cancelled():
             wait_done(task, timeout=5.0)
             if task.status == asynclet.TaskStatus.CANCELLED:
                 seen_cancelled += 1
+                with pytest.raises(concurrent.futures.CancelledError):
+                    _ = task.result
     assert seen_cancelled >= 1
 
 
@@ -241,6 +258,22 @@ def test_concurrent_tasks_all_succeed():
     assert [t.result for t in tasks] == [i * 3 for i in range(6)]
 
 
+def test_concurrent_tasks_finish_out_of_order():
+    def work(i: int) -> int:
+        # Invert sleep so later tasks can finish earlier.
+        time.sleep(0.02 * (6 - i))
+        return i
+
+    tasks = [asynclet.run(work, i) for i in range(6)]
+    time.sleep(0.05)
+    assert any(t.done for t in tasks)
+    assert any(not t.done for t in tasks)
+    for t in tasks:
+        wait_done(t)
+        assert t.status == asynclet.TaskStatus.DONE
+    assert sorted([t.result for t in tasks]) == list(range(6))
+
+
 def test_sync_function_runs_off_worker_thread():
     main = threading.current_thread()
 
@@ -292,6 +325,25 @@ async def test_async_without_progress_queue():
     await wait_done_async(task)
     assert task.progress == []
     assert task.result == 42
+
+
+@pytest.mark.asyncio
+async def test_progress_mid_run_drains_without_duplication():
+    async def emit(queue) -> int:
+        for i in range(3):
+            await queue.async_q.put(i)
+            await asyncio.sleep(0.02)
+        return 3
+
+    task = asynclet.run(emit)
+    collected: list[int] = []
+    while not task.done:
+        collected.extend(task.progress)
+        await asyncio.sleep(0.005)
+    collected.extend(task.progress)
+    assert task.result == 3
+    assert collected == [0, 1, 2]
+    assert task.progress == []
 
 
 def test_worker_loop_singleton():

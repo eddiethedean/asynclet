@@ -47,7 +47,12 @@ On each rerun, check `task.done` and read `task.result` when finished.
 
 ## Progress (Janus)
 
-For **async** functions only, declare a parameter named **`queue`** or **`progress_queue`**. If it is the **first** parameter, remaining positional arguments to `run()` map to the rest of the signature.
+Progress is supported for **async** functions only.
+
+Declare a parameter named **`queue`** or **`progress_queue`**:
+
+- If it is the **first** parameter, asynclet injects the Janus queue **positionally** and the remaining positional arguments to `run()` map to the rest of the signature.
+- Otherwise, asynclet injects the queue by **keyword** (`queue=` / `progress_queue=`).
 
 ```python
 async def job(queue, steps: int):
@@ -76,6 +81,63 @@ if "load" not in tasks:
 task = tasks["load"]
 ```
 
+## Patterns
+
+### Named tasks (per session)
+
+Use `session_tasks(st.session_state)` as a stable dict to store tasks across reruns:
+
+```python
+tasks = asynclet.session_tasks(st.session_state)
+
+if "load" not in tasks:
+    tasks["load"] = asynclet.run(load_data)
+
+task = tasks["load"]
+```
+
+### Cleanup (when you create many tasks)
+
+If you create many tasks over time, keep them in a `TaskManager` and periodically call `cleanup()` to trim completed entries:
+
+```python
+m = asynclet.TaskManager(max_completed=256)
+task = asynclet.run(load_data, manager=m)
+
+# ... later:
+m.cleanup()
+```
+
+## Errors
+
+If the callable raises, `task.status` becomes `ERROR`, `task.error` holds the exception, and reading `task.result` re-raises it.
+
+```python
+if task.status == asynclet.TaskStatus.ERROR:
+    st.error(f"failed: {task.error!r}")
+elif task.done:
+    st.write(task.result)
+else:
+    st.write("Loading…")
+```
+
+## Cancellation
+
+`task.cancel()` requests cancellation:
+
+- If the task is **running**, it schedules `asyncio` cancellation on the worker loop.
+- If the task is still **pending** (not yet bound on the worker loop), it cancels the result future.
+
+Treat `CANCELLED` as a terminal state in UI code.
+
+## Troubleshooting / FAQ
+
+### Why does it keep showing `wait`?
+
+In rerun-driven UIs, a single script run may finish before the background task completes. The usual pattern is: show `wait`, then on the next rerun read `task.done` / `task.result`.
+
+In tests (or special cases), you may need to allow a small amount of wall time between reruns for the worker to finish.
+
 ## How it works (short)
 
 - One **daemon thread** runs a single **asyncio** event loop.
@@ -87,6 +149,16 @@ task = tasks["load"]
 ```bash
 pip install -e '.[dev]'
 pytest
+```
+
+### Development (uv)
+
+If you use [uv](https://github.com/astral-sh/uv), you can run tests in a fresh env like:
+
+```bash
+uv venv
+uv pip install -e '.[dev]'
+uv run pytest
 ```
 
 The **dev** extra includes Streamlit so CI can run headless **[AppTest](https://docs.streamlit.io/develop/api-reference/app-testing)** checks in `tests/test_streamlit_apptest.py` against the sample apps under `tests/streamlit_apps/`.

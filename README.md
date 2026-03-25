@@ -89,6 +89,8 @@ pip install -e '.[dev]'
 pytest
 ```
 
+The **dev** extra includes Streamlit so CI can run headless **[AppTest](https://docs.streamlit.io/develop/api-reference/app-testing)** checks in `tests/test_streamlit_apptest.py` against the sample apps under `tests/streamlit_apps/`.
+
 ## License
 
 MIT.

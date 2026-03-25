@@ -27,7 +27,7 @@ def _markdown_values(at: AppTest) -> list[str]:
 
 def test_apptest_poll_app_eventually_ready_after_wall_clock_gap():
     """Two reruns with real time between them so the worker can finish."""
-    path = APPS_DIR / "asynclet_poll_app.py"
+    path = APPS_DIR / "asynclit_poll_app.py"
     at = AppTest.from_file(str(path))
     at.run(timeout=60)
     assert not at.exception
@@ -40,7 +40,7 @@ def test_apptest_poll_app_eventually_ready_after_wall_clock_gap():
 
 def test_apptest_poll_cooperative_single_run_completes():
     """One rerun: script yields wall time so ``task.done`` is true before exit."""
-    path = APPS_DIR / "asynclet_poll_cooperative_app.py"
+    path = APPS_DIR / "asynclit_poll_cooperative_app.py"
     at = AppTest.from_file(str(path))
     at.run(timeout=60)
     assert not at.exception
@@ -48,7 +48,7 @@ def test_apptest_poll_cooperative_single_run_completes():
 
 
 def test_apptest_progress_app_emits_ticks_and_done():
-    path = APPS_DIR / "asynclet_progress_app.py"
+    path = APPS_DIR / "asynclit_progress_app.py"
     at = AppTest.from_file(str(path))
     collected: list[str] = []
     for _ in range(40):
@@ -63,7 +63,7 @@ def test_apptest_progress_app_emits_ticks_and_done():
 
 
 def test_apptest_session_tasks_bucket_persists_across_runs():
-    path = APPS_DIR / "asynclet_session_bucket_app.py"
+    path = APPS_DIR / "asynclit_session_bucket_app.py"
     at = AppTest.from_file(str(path))
     at.run(timeout=60)
     assert not at.exception

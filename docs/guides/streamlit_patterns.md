@@ -17,7 +17,7 @@ else:
     st.write("Loading…")
 ```
 
-Observed output in `tests/streamlit_apps/asynclet_poll_app.py` (AppTest runs):
+Observed output in `tests/streamlit_apps/asynclit_poll_app.py` (AppTest runs):
 
 ```text
 run 0 ['wait']
@@ -46,7 +46,7 @@ if task.done:
     st.write(f"done: {task.result}")
 ```
 
-Observed output in `tests/streamlit_apps/asynclet_progress_app.py` (AppTest runs):
+Observed output in `tests/streamlit_apps/asynclit_progress_app.py` (AppTest runs):
 
 ```text
 run 0 ['started']

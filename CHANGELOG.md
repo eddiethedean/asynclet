@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- Fix Streamlit AppTest sample app paths after asynclet→asynclit rename.
+
 ## 0.2.1
 
 - Fix edge cases around progress queue shutdown handling.

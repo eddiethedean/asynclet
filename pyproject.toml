@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "asynclit"
-version = "0.2.1"
+version = "0.2.2"
 description = "Async task layer for Streamlit: background sync/async work, polling, progress, cancellation"
 readme = "README.md"
 requires-python = ">=3.9"

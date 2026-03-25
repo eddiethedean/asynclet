@@ -1,7 +1,7 @@
 """
 Minimal Streamlit app: session-scoped asynclit task + polling UI.
 
-Run manually: ``streamlit run tests/streamlit_apps/asynclet_poll_app.py``
+Run manually: ``streamlit run tests/streamlit_apps/asynclit_poll_app.py``
 (from repo root, with the package installed).
 """
 

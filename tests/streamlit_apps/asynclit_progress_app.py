@@ -1,7 +1,7 @@
 """
 Streamlit app: asynclit progress streaming (Janus) across reruns.
 
-Run manually: ``streamlit run tests/streamlit_apps/asynclet_progress_app.py``
+Run manually: ``streamlit run tests/streamlit_apps/asynclit_progress_app.py``
 """
 
 from __future__ import annotations
